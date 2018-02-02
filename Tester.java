@@ -19,7 +19,7 @@ public class Tester extends LinearOpMode {
 
 
   // set ye motors / servos
-  private String hwServo = "gemservo";
+  private String hwServo = "glyphBottomLeft";
   private String hwMotor = "liftermotor";
   private String hwCrServo="belt drive";
   private String hwColorSensor = "revsens";
@@ -61,11 +61,18 @@ public class Tester extends LinearOpMode {
        if (mode == "servo")
        {
            servo = hardwareMap.get(Servo.class, hwServo);
-           if (hwServo == "gemservo")
-           {
-               mode = "gemservo";
-               colorsens = hardwareMap.get(ColorSensor.class, hwColorSensor);
-           }
+           
+           telemetry.addLine(" hit left bumper for regular, right bumper for reverse.");
+           telemetry.update();
+           boolean adv = false;
+           do {
+               if (gamepad1.left_bumper) {
+                    adv = true;
+                } else if (gamepad1.right_bumper) {
+                    servo.setDirection(Servo.Direction.REVERSE);
+                    adv = true;
+                }
+            } while (adv == false);
        }
        else if (mode == "motor")
        {

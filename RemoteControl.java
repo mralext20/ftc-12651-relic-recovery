@@ -7,6 +7,15 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.util.Range;
 
+/* programmers notes: 
+ cur glyph mode is a fake enum between 0 and 4. 
+  mode == 0 means that the arms are both open, and at the lowest position.
+  mode == 1 means that the top set of arms are closed, and that the top set has moved up to the high position.
+  mode == 2 means that the bottom set of arms have shut, and the entire arm set is moved up a small amount.
+  mode == 3 means that the arm set moves as high as it can.
+  mode == 4 means that both arms are opened, and as high as posible. 
+  */
+
 
 @TeleOp(name="Controlled Mode", group="Linear Opmode")
 
@@ -14,10 +23,24 @@ public class RemoteControl extends LinearOpMode {
     
     public static final int RAMPSIZE = 15;
     
+    public static final double GLYPHBOTTOMLEFTOPEN = .254;
+    public static final double GLYPHBOTTOMLEFTCLOSED = 0.385;
+    public static final double GLYPHBOTTOMRIGHTOPEN = 0.64; 
+    public static final double GLYPHBOTTOMRIGHTCLOSED = 0.42;
+    public static final double GLYPHTOPLEFTOPEN = .65;
+    public static final double GLYPHTOPLEFTCLOSED = .46;
+    public static final double GLYPHTOPRIGHTOPEN = .14;
+    public static final double GLYPHTOPRIGHTCLOSED = .37;
+    
+    
     private DcMotor LeftWheel = null;
     private DcMotor RightWheel = null;
     private DcMotor CenterWheel = null;
     
+    private Servo glyphTopLeft = null;
+    private Servo glyphTopRight = null;
+    private Servo glyphBottomLeft = null;
+    private Servo glyphBottomRight = null;
     
     private DcMotor lifterMotor = null;
     
@@ -60,6 +83,12 @@ public class RemoteControl extends LinearOpMode {
         RightWheel.setDirection(DcMotor.Direction.REVERSE);
         CenterWheel.setDirection(DcMotor.Direction.REVERSE);
         
+        
+        glyphBottomLeft = hardwareMap.get(Servo.class, "glyphBottomLeft");
+        glyphBottomRight = hardwareMap.get(Servo.class, "glyphBottomRight");
+        
+        glyphTopLeft = hardwareMap.get(Servo.class, "glyphTopLeft");
+        glyphTopRight = hardwareMap.get(Servo.class, "glyphTopRight");
         
         LeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         RightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -194,7 +223,12 @@ public class RemoteControl extends LinearOpMode {
             
             if (curGlyphPos == 0) {
                 lifterMotor.setTargetPosition(0);
-                
+                glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
+                glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
+                glyphTopLeft.setPosition(GLYPHTOPLEFTOPEN);
+                glyphTopRight.setPosition(GLYPHTOPRIGHTOPEN);
+            } else if (curGlyphPos == 1)
+            {
                 
             }
             
