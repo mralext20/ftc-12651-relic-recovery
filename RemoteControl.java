@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -23,14 +24,14 @@ public class RemoteControl extends LinearOpMode {
     
     public static final int RAMPSIZE = 15;
     
-    public static final double GLYPHBOTTOMLEFTOPEN = .254;
+    public static final double GLYPHBOTTOMLEFTOPEN = 0.254;
     public static final double GLYPHBOTTOMLEFTCLOSED = 0.385;
     public static final double GLYPHBOTTOMRIGHTOPEN = 0.64; 
     public static final double GLYPHBOTTOMRIGHTCLOSED = 0.42;
-    public static final double GLYPHTOPLEFTOPEN = .65;
-    public static final double GLYPHTOPLEFTCLOSED = .46;
-    public static final double GLYPHTOPRIGHTOPEN = .14;
-    public static final double GLYPHTOPRIGHTCLOSED = .37;
+    public static final double GLYPHTOPLEFTOPEN = 0.65;
+    public static final double GLYPHTOPLEFTCLOSED = 0.46;
+    public static final double GLYPHTOPRIGHTOPEN = 0.14;
+    public static final double GLYPHTOPRIGHTCLOSED = 0.37;
     
     
     private DcMotor LeftWheel = null;
@@ -41,6 +42,7 @@ public class RemoteControl extends LinearOpMode {
     private Servo glyphTopRight = null;
     private Servo glyphBottomLeft = null;
     private Servo glyphBottomRight = null;
+    private CRServo glyphLifterServo = null;
     
     private DcMotor lifterMotor = null;
     
@@ -55,9 +57,15 @@ public class RemoteControl extends LinearOpMode {
     private int curRecentIteration = 0;
     
     private int curGlyphPos = 0;
+    public enum glyphSystemStates {
+        Manual, Smart
+    };
     
-    private Gamepad prevGamepad1;
-    private Gamepad prevGamepad2;
+    private glyphSystemStates glyphSystemState = glyphSystemStates.Manual;
+    
+    private boolean prevgp2back = false;
+    private boolean prevgp2y = false;
+    private boolean prevgp2a = false;
     
     public boolean pressed(boolean previous, boolean now) {
         if (now == true && previous == false) {
@@ -90,6 +98,8 @@ public class RemoteControl extends LinearOpMode {
         glyphTopLeft = hardwareMap.get(Servo.class, "glyphTopLeft");
         glyphTopRight = hardwareMap.get(Servo.class, "glyphTopRight");
         
+        glyphLifterServo = hardwareMap.get(CRServo.class, "belt drive");
+        
         LeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         RightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         CenterWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -105,8 +115,6 @@ public class RemoteControl extends LinearOpMode {
         
         waitForStart();
         //gemServo.setPosition(1);
-        prevGamepad1 = gamepad1;
-        prevGamepad2 = gamepad2;
         while( opModeIsActive())
         {
             //get motor powers
@@ -206,37 +214,90 @@ public class RemoteControl extends LinearOpMode {
             }
             
             
+            if (gamepad2.back) {
+                lifterMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                glyphSystemState = glyphSystemStates.Manual;
+            }
             
-            // beg glyph stuff
+            
+        if (glyphSystemState == glyphSystemStates.Smart) {
+            // beg smart glyph stuff
             
             // check if y is newly pressed
-            if (pressed(gamepad2.y, prevGamepad2.y)) {
+            if (gamepad2.y && !prevgp2y) {
                 curGlyphPos +=1;
             }
             // check if a is newly pressed
-            if (pressed(gamepad2.a, prevGamepad2.a)) {
+            if (gamepad2.a && !prevgp2a) {
                 curGlyphPos -=1;
             }
             
             curGlyphPos = Range.clip(curGlyphPos, 0,4);
             telemetry.addData("curGlyphPos", curGlyphPos);
+            telemetry.addLine("automatic control of glyph system");
             
             if (curGlyphPos == 0) {
+                // open, at the bottom
                 lifterMotor.setTargetPosition(0);
                 glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
                 glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
                 glyphTopLeft.setPosition(GLYPHTOPLEFTOPEN);
                 glyphTopRight.setPosition(GLYPHTOPRIGHTOPEN);
-            } else if (curGlyphPos == 1)
-            {
+            } else if (curGlyphPos == 1) {
+                // top closed, and lifted to the top
+                glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
+                glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
+                glyphTopLeft.setPosition(GLYPHTOPLEFTCLOSED);
                 
+                
+                
+                
+                glyphTopRight.setPosition(GLYPHTOPRIGHTCLOSED);
+            } else if (curGlyphPos == 2) {
+                // bottom closed, lifted off the floor
+                glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTCLOSED);
+                glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTCLOSED);
+                glyphTopLeft.setPosition(GLYPHTOPLEFTCLOSED);
+                glyphTopRight.setPosition(GLYPHTOPRIGHTCLOSED);
+            } else if (curGlyphPos == 3) {
+                // all closed, lifdted up high
+                glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTCLOSED);
+                glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTCLOSED);
+                glyphTopLeft.setPosition(GLYPHTOPLEFTCLOSED);
+                glyphTopRight.setPosition(GLYPHTOPRIGHTCLOSED);
+            } else if (curGlyphPos == 4) {
+                // open, lifted up high.
+                glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
+                glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
+                glyphTopLeft.setPosition(GLYPHTOPLEFTOPEN);
+                glyphTopRight.setPosition(GLYPHTOPRIGHTOPEN);
             }
-            
-            
+        } // smart mode end, beg manual mode
+            else if (glyphSystemState == glyphSystemStates.Manual) {
+                telemetry.addLine("MANUAL CONTROL OF GLYPH SYSTEM");
+                if (gamepad2.left_bumper) {
+                    glyphTopLeft.setPosition(GLYPHTOPLEFTCLOSED);
+                    glyphTopRight.setPosition(GLYPHTOPRIGHTCLOSED);
+                } else if (gamepad2.right_bumper) {
+                    glyphTopLeft.setPosition(GLYPHTOPLEFTOPEN);
+                    glyphTopRight.setPosition(GLYPHTOPRIGHTOPEN);
+                }
+                
+                if (gamepad2.left_trigger < .8) {
+                    glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTCLOSED);
+                    glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTCLOSED);
+                } else if (gamepad2.right_trigger < .8) {
+                    glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
+                    glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
+                }
+                lifterMotor.setPower(gamepad2.right_stick_x);
+                glyphLifterServo.setPower(gamepad2.left_stick_x);
+        } // end manual mode for glyph system
             
             telemetry.update();
-            prevGamepad1 = gamepad1;
-            prevGamepad2 = gamepad2;
+            prevgp2a = gamepad2.a;
+            prevgp2back= gamepad2.back;
+            prevgp2y = gamepad2.back;
         } // while( opModeIsActive())
     } // public void runOpMode() {
 } // public class RemoteControl extends LinearOpMode {
