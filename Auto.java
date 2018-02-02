@@ -50,8 +50,18 @@ public class Auto extends LinearOpMode {
  private int lifterMiddle = 0;
  private int lifterTop = 0;
  
- private String team = "";
- private String location = "";
+ 
+ public enum Locations {
+  Close, Far
+ };
+ private Locations location;
+ 
+ public enum Teams {
+  Red, Blue, Testing
+ };
+ private Teams team;
+ 
+ 
  private ColorSensor colorsens = null;
  
  public void print(String Line) {
@@ -119,25 +129,25 @@ public class Auto extends LinearOpMode {
 
   telemetry.addLine("press B for red, X for blue on controller 1");
   telemetry.update();
-  while (team == "") {
+  while (team == null) {
    if (gamepad1.b) {
-    team = "red";
+    team = Teams.Red;
    } else if (gamepad1.x) {
-    team = "blue";
+    team = Teams.Blue;
    }
    else if (gamepad1.y) {
-    team = "yellow";
+    team = Teams.Testing;
    }
   }
   sleep(300);
   telemetry.addData("press Y for CLOSE TO THE RELIC SCORING MAT," +
    "press A for FAR FROM THE RELIC SCORING MAT\n\n team was ", team);
   telemetry.update();
-  while (location == "") {
+  while (location == null) {
    if (gamepad1.y) {
-    location = "close";
+    location = Locations.Close;
    } else if (gamepad1.a) {
-    location = "far";
+    location = Locations.Far;
    }
   }
   telemetry.addData("Team", team);
@@ -145,7 +155,7 @@ public class Auto extends LinearOpMode {
   telemetry.update();
   // Wait for the game to start
   waitForStart();
-  if (team == "yellow")
+  if (team == Teams.Testing)
   {
    print("red > blue ");
     drive(-gemDist);
@@ -158,7 +168,7 @@ public class Auto extends LinearOpMode {
   gemServo.setPosition(0.14);
   sleep(900);
   
-  if (team == "red")
+  if (team == Teams.Red)
   {
    if (colorsens.red() > colorsens.blue())
    {
@@ -169,7 +179,7 @@ public class Auto extends LinearOpMode {
     drive(gemDist);
     print("end of gems");
    }
-   else if (team == "blue")
+   else if (team == Teams.Blue)
    {
     drive(gemDist);
     gemServo.setPosition(.9);
@@ -192,9 +202,9 @@ public class Auto extends LinearOpMode {
     sleep(500);
     drive(gemDist);
    } // else (team == blue)
-   if (team == "red")
+   if (team == Teams.Red)
    {
-    if (location == "close")
+    if (location == Locations.Close)
     {
      drive(closeToCrypt);
      turn(nintydeg);
@@ -209,7 +219,7 @@ public class Auto extends LinearOpMode {
    }
    else
    {
-    if (location == "close")
+    if (location == Locations.Close)
     {
      drive(-closeToCrypt);
      turn(-nintydeg);
