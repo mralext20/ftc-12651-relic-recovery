@@ -1,12 +1,16 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
+
+
 
 /* programmers notes: 
  cur glyph mode is a fake enum between 0 and 4. 
@@ -32,6 +36,7 @@ public class RemoteControl extends LinearOpMode {
     public static final double GLYPHTOPLEFTCLOSED = 0.46;
     public static final double GLYPHTOPRIGHTOPEN = 0.14;
     public static final double GLYPHTOPRIGHTCLOSED = 0.37;
+    public static final int LIFTERMOTORBOTTOM = 0;
     
     
     private DcMotor LeftWheel = null;
@@ -43,6 +48,7 @@ public class RemoteControl extends LinearOpMode {
     private Servo glyphBottomLeft = null;
     private Servo glyphBottomRight = null;
     private CRServo glyphLifterServo = null;
+    private DigitalChannel revMagnetSensor = null;
     
     private DcMotor lifterMotor = null;
     
@@ -53,7 +59,7 @@ public class RemoteControl extends LinearOpMode {
     private double[] recentLeftPowers = new double[RAMPSIZE];
     private double[] recentRightPowers = new double[RAMPSIZE];
     private double[] recentCenterPowers = new double[RAMPSIZE];
-    
+    private ElapsedTime glyphLifterServoMovingTime;
     private int curRecentIteration = 0;
     
     private int curGlyphPos = 0;
@@ -61,20 +67,18 @@ public class RemoteControl extends LinearOpMode {
         Manual, Smart
     };
     
-    private glyphSystemStates glyphSystemState = glyphSystemStates.Manual;
+    private glyphSystemStates glyphSystemState = glyphSystemStates.Smart;
+    
+    public enum glyphCRServoStates {
+        Bottom, Top, TransitTop, TransitBottom
+    };
+    
+    private glyphCRServoStates glyphCRServoState = glyphCRServoStates.Bottom;
+    // private ElapsedTime glyphLifterServoMovingTime;
     
     private boolean prevgp2back = false;
     private boolean prevgp2y = false;
     private boolean prevgp2a = false;
-    
-    public boolean pressed(boolean previous, boolean now) {
-        if (now == true && previous == false) {
-            return true;
-        }
-        else {
-            return false;
-        }
-    }
     
     
     @Override
@@ -99,6 +103,9 @@ public class RemoteControl extends LinearOpMode {
         glyphTopRight = hardwareMap.get(Servo.class, "glyphTopRight");
         
         glyphLifterServo = hardwareMap.get(CRServo.class, "belt drive");
+        
+        revMagnetSensor = hardwareMap.get(DigitalChannel.class, "revMagnetSensor");
+        revMagnetSensor.setMode(DigitalChannel.Mode.INPUT);
         
         LeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         RightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -191,28 +198,7 @@ public class RemoteControl extends LinearOpMode {
             
             
             
-            //compliant spitters out 
-            if (gamepad2.right_trigger > .5)
-            {
-                LeftCompliant.setPower(1);
-                RightCompliant.setPower(1);
-                telemetry.addLine("Compliant Wheels runing OUT");
-            } 
-            //compliant suckers in.
-            else if (gamepad2.left_trigger > .5)
-            {
-                RightCompliant.setPower(-1);
-                LeftCompliant.setPower(-1);
-                telemetry.addLine("Compliant Wheels runing IN");
-            }
-            else
-            //COMPLIANT DOES NOTHING
-            {
-                RightCompliant.setPower(0);
-                LeftCompliant.setPower(0);
-                telemetry.addLine("Compliant Wheels NOT RUNNING");
-            }
-            
+
             
             if (gamepad2.back) {
                 lifterMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -243,16 +229,14 @@ public class RemoteControl extends LinearOpMode {
                 glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
                 glyphTopLeft.setPosition(GLYPHTOPLEFTOPEN);
                 glyphTopRight.setPosition(GLYPHTOPRIGHTOPEN);
+                lifterMotor.setTargetPosition(LIFTERMOTORBOTTOM);
             } else if (curGlyphPos == 1) {
                 // top closed, and lifted to the top
                 glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
                 glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
                 glyphTopLeft.setPosition(GLYPHTOPLEFTCLOSED);
-                
-                
-                
-                
                 glyphTopRight.setPosition(GLYPHTOPRIGHTCLOSED);
+                
             } else if (curGlyphPos == 2) {
                 // bottom closed, lifted off the floor
                 glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTCLOSED);
@@ -271,7 +255,55 @@ public class RemoteControl extends LinearOpMode {
                 glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
                 glyphTopLeft.setPosition(GLYPHTOPLEFTOPEN);
                 glyphTopRight.setPosition(GLYPHTOPRIGHTOPEN);
+                
             }
+            //compliant spitters out 
+            if (gamepad2.right_trigger > .8)
+            {
+                LeftCompliant.setPower(1);
+                RightCompliant.setPower(1);
+                telemetry.addLine("Compliant Wheels runing OUT");
+            } 
+            //compliant suckers in.
+            else if (gamepad2.left_trigger > .8)
+            {
+                RightCompliant.setPower(-1);
+                LeftCompliant.setPower(-1);
+                telemetry.addLine("Compliant Wheels runing IN");
+            }
+            else
+            //COMPLIANT DOES NOTHING
+            {
+                RightCompliant.setPower(0);
+                LeftCompliant.setPower(0);
+                telemetry.addLine("Compliant Wheels NOT RUNNING");
+            }
+            
+            // smart crservo system:
+            
+            if (glyphCRServoState == glyphCRServoStates.Bottom) {
+                glyphLifterServo.setPower(0);
+                glyphLifterServoMovingTime.reset();
+            } else if (glyphCRServoState == glyphCRServoStates.TransitTop) {
+                if (glyphLifterServoMovingTime.seconds() < 2){
+                    glyphLifterServo.setPower(-1);
+                }
+                if (revMagnetSensor.getState() == true) { // magnet sensor not pressed
+                    glyphLifterServo.setPower(-1);
+                } else if (revMagnetSensor.getState() == false) {
+                    glyphCRServoState = glyphCRServoStates.Top;
+                }
+            } // if transient top
+                else if (glyphCRServoState == glyphCRServoStates.TransitBottom) {
+                    if (glyphLifterServoMovingTime.seconds() < 2) {
+                        glyphLifterServo.setPower(1);
+                    } else if (revMagnetSensor.getState() == true) {
+                        glyphLifterServo.setPower(1);
+                    } else if (revMagnetSensor.getState() == false) {
+                        glyphLifterServo.setPower(0);
+                        glyphCRServoState = glyphCRServoStates.Bottom;
+                    }
+                }
         } // smart mode end, beg manual mode
             else if (glyphSystemState == glyphSystemStates.Manual) {
                 telemetry.addLine("MANUAL CONTROL OF GLYPH SYSTEM");
@@ -283,15 +315,39 @@ public class RemoteControl extends LinearOpMode {
                     glyphTopRight.setPosition(GLYPHTOPRIGHTOPEN);
                 }
                 
-                if (gamepad2.left_trigger < .8) {
+                if (gamepad2.left_trigger > .8) {
                     glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTCLOSED);
                     glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTCLOSED);
-                } else if (gamepad2.right_trigger < .8) {
+                } else if (gamepad2.right_trigger > .8) {
                     glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
                     glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
                 }
-                lifterMotor.setPower(gamepad2.right_stick_x);
-                glyphLifterServo.setPower(gamepad2.left_stick_x);
+                lifterMotor.setPower(gamepad2.right_stick_y);
+                glyphLifterServo.setPower(gamepad2.left_stick_y);
+                
+            //compliant spitters out 
+            if (gamepad2.dpad_down)
+            {
+                LeftCompliant.setPower(1);
+                RightCompliant.setPower(1);
+                telemetry.addLine("Compliant Wheels runing OUT");
+            } 
+            //compliant suckers in.
+            else if (gamepad2.dpad_up)
+            {
+                RightCompliant.setPower(-1);
+                LeftCompliant.setPower(-1);
+                telemetry.addLine("Compliant Wheels runing IN");
+            }
+            else
+            //COMPLIANT DOES NOTHING
+            {
+                RightCompliant.setPower(0);
+                LeftCompliant.setPower(0);
+                telemetry.addLine("Compliant Wheels NOT RUNNING");
+            }
+            
+                
         } // end manual mode for glyph system
             
             telemetry.update();
