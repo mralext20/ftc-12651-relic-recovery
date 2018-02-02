@@ -59,6 +59,7 @@ public class RemoteControl extends LinearOpMode {
     private double[] recentLeftPowers = new double[RAMPSIZE];
     private double[] recentRightPowers = new double[RAMPSIZE];
     private double[] recentCenterPowers = new double[RAMPSIZE];
+    
     private ElapsedTime glyphLifterServoMovingTime;
     private int curRecentIteration = 0;
     
@@ -66,6 +67,11 @@ public class RemoteControl extends LinearOpMode {
     public enum glyphSystemStates {
         Manual, Smart
     };
+    
+    public enum gp2States {
+        Relic, Glyph
+    }
+    private gp2States gp2State = gp2States.Glyph;
     
     private glyphSystemStates glyphSystemState = glyphSystemStates.Smart;
     
@@ -79,6 +85,7 @@ public class RemoteControl extends LinearOpMode {
     private boolean prevgp2back = false;
     private boolean prevgp2y = false;
     private boolean prevgp2a = false;
+    private boolean prevgp2start = false;
     
     
     @Override
@@ -203,6 +210,9 @@ public class RemoteControl extends LinearOpMode {
             if (gamepad2.back) {
                 lifterMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
                 glyphSystemState = glyphSystemStates.Manual;
+            }
+            if (gamepad2.start && !prevgp2start) {
+                gp2State = gp2States.Relic;
             }
             
             
@@ -350,10 +360,12 @@ public class RemoteControl extends LinearOpMode {
                 
         } // end manual mode for glyph system
             
+            telemetry.addData("gp2 state", gp2State);
             telemetry.update();
             prevgp2a = gamepad2.a;
             prevgp2back= gamepad2.back;
-            prevgp2y = gamepad2.back;
+            prevgp2y = gamepad2.y;
+            prevgp2start = gamepad2.start;
         } // while( opModeIsActive())
     } // public void runOpMode() {
 } // public class RemoteControl extends LinearOpMode {
