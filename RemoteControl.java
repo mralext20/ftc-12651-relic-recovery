@@ -60,7 +60,7 @@ public class RemoteControl extends LinearOpMode {
     private double[] recentRightPowers = new double[RAMPSIZE];
     private double[] recentCenterPowers = new double[RAMPSIZE];
     
-    private ElapsedTime glyphLifterServoMovingTime;
+    private ElapsedTime glyphLifterServoMovingTime = new ElapsedTime();
     private int curRecentIteration = 0;
     
     private int curGlyphPos = 0;
