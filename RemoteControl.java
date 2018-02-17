@@ -26,22 +26,25 @@ import com.qualcomm.robotcore.util.Range;
 
 public class RemoteControl extends LinearOpMode {
     
-    public static final int RAMPSIZE = 15;
+    public static final int RAMPSIZE = 1;
     
-    public static final double GLYPHBOTTOMLEFTOPEN = 0.254;
+    public static final double GLYPHBOTTOMLEFTOPEN = 0.154;
     public static final double GLYPHBOTTOMLEFTCLOSED = 0.385;
-    public static final double GLYPHBOTTOMRIGHTOPEN = 0.64; 
+    public static final double GLYPHBOTTOMRIGHTOPEN = 0.84; 
     public static final double GLYPHBOTTOMRIGHTCLOSED = 0.42;
     public static final double GLYPHTOPLEFTOPEN = 0.65;
     public static final double GLYPHTOPLEFTCLOSED = 0.46;
     public static final double GLYPHTOPRIGHTOPEN = 0.14;
     public static final double GLYPHTOPRIGHTCLOSED = 0.37;
     public static final int LIFTERMOTORBOTTOM = 0;
+    public static final int LIFTERMOTORMIDDLE = 600;
+    public static final int LIFTERMOTORTOP = 6100;
+    public static final double RELICHOLDEROPEN = 0.324;
+    public static final double RELICHOLDERCLOSED = 0.061;
     
     
     private DcMotor LeftWheel = null;
     private DcMotor RightWheel = null;
-    private DcMotor CenterWheel = null;
     
     private Servo glyphTopLeft = null;
     private Servo glyphTopRight = null;
@@ -49,6 +52,10 @@ public class RemoteControl extends LinearOpMode {
     private Servo glyphBottomRight = null;
     private CRServo glyphLifterServo = null;
     private DigitalChannel revMagnetSensor = null;
+    
+    private CRServo relicSpinner = null;
+    private Servo relicHolder = null;
+    private DcMotor relicExtender = null;
     
     private DcMotor lifterMotor = null;
     
@@ -85,7 +92,7 @@ public class RemoteControl extends LinearOpMode {
     private boolean prevgp2back = false;
     private boolean prevgp2y = false;
     private boolean prevgp2a = false;
-    private boolean prevgp2start = false;
+    private boolean prevgp2stick = false;
     
     
     @Override
@@ -95,13 +102,12 @@ public class RemoteControl extends LinearOpMode {
         telemetry.update();
         LeftWheel = hardwareMap.get(DcMotor.class, "leftwheel");
         RightWheel = hardwareMap.get(DcMotor.class, "rightwheel");
-        CenterWheel = hardwareMap.get(DcMotor.class, "centerwheel");
         RightCompliant = hardwareMap.get(DcMotor.class, "rightcompliant");
         LeftCompliant = hardwareMap.get(DcMotor.class, "leftcompliant");
         
         RightWheel.setDirection(DcMotor.Direction.REVERSE);
-        CenterWheel.setDirection(DcMotor.Direction.REVERSE);
         
+        gemServo = hardwareMap.get(Servo.class, "gemservo");
         
         glyphBottomLeft = hardwareMap.get(Servo.class, "glyphBottomLeft");
         glyphBottomRight = hardwareMap.get(Servo.class, "glyphBottomRight");
@@ -116,37 +122,36 @@ public class RemoteControl extends LinearOpMode {
         
         LeftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         RightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        CenterWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         
         LeftCompliant.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         RightCompliant.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        
+        relicSpinner =hardwareMap.get(CRServo.class, "relic spinner");
+        relicHolder = hardwareMap.get(Servo.class, "relic holder");
+        relicExtender = hardwareMap.get(DcMotor.class, "relic extender");
+        
+        relicSpinner.setDirection(DcMotor.Direction.REVERSE);
+        
+        
+        relicExtender.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         
         
         lifterMotor = hardwareMap.get(DcMotor.class, "liftermotor");
         lifterMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         lifterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        
+        lifterMotor.setDirection(DcMotor.Direction.REVERSE);
+        glyphLifterServo.setDirection(DcMotor.Direction.REVERSE);
         
         waitForStart();
+        gemServo.setPosition(.8);
+        lifterMotor.setPower(1);
         //gemServo.setPosition(1);
         while( opModeIsActive())
         {
             //get motor powers
             double leftInputPower = gamepad1.left_stick_y - gamepad1.right_stick_x;
             double rightInputPower = gamepad1.left_stick_y + gamepad1.right_stick_x;
-            double centerInputPower;
-            if (gamepad1.left_bumper)
-            {
-                centerInputPower = 1;
-            }
-            else if (gamepad1.right_bumper)
-            {
-                centerInputPower = -1;
-            }
-            else 
-            {
-                centerInputPower = 0;
-            }
+            
             
             
             double powerPercent = (gamepad1.left_trigger);
@@ -162,20 +167,17 @@ public class RemoteControl extends LinearOpMode {
             // array lists of recent powers
             recentLeftPowers[curRecentIteration] = leftInputPower;
             recentRightPowers[curRecentIteration] = rightInputPower;
-            recentCenterPowers[curRecentIteration] = centerInputPower;
             curRecentIteration++;
             double runningLeft = 0;
-            double runningCenter = 0;
             double runningRight = 0;
             for (int i = 0; i < RAMPSIZE ; i++)
             {
                 runningLeft  += recentLeftPowers[i];
                 runningRight += recentRightPowers[i];
-                runningCenter+= recentCenterPowers[i];
             }
             double leftPower= runningLeft/RAMPSIZE;
             double rightPower=runningRight/RAMPSIZE;
-            double centerPower=runningCenter/RAMPSIZE;
+           
             
             if (Math.abs(leftPower) < Math.abs(leftInputPower))
             {
@@ -187,21 +189,14 @@ public class RemoteControl extends LinearOpMode {
                 rightPower = rightInputPower;
             }
             
-            if (Math.abs(centerPower) < Math.abs(centerInputPower))
-            {
-                centerPower = centerInputPower;
-            }
             LeftWheel.setPower(leftPower);
             RightWheel.setPower(rightPower);
-            CenterWheel.setPower(centerPower);
             
             telemetry.addData("curRecentiteration", curRecentIteration);
             telemetry.addData("leftPower", "%.2f", leftPower);
             telemetry.addData("RightPower", "%.2f", rightPower);
-            telemetry.addData("CenterPower", "%.2f", centerPower);
             telemetry.addData("left Endocer", LeftWheel.getCurrentPosition());
             telemetry.addData("right Endocer", RightWheel.getCurrentPosition());
-            telemetry.addData("center Endocer", CenterWheel.getCurrentPosition());
             
             
             
@@ -211,11 +206,22 @@ public class RemoteControl extends LinearOpMode {
                 lifterMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
                 glyphSystemState = glyphSystemStates.Manual;
             }
-            if (gamepad2.start && !prevgp2start) {
-                gp2State = gp2States.Relic;
+            if (gamepad2.back && !prevgp2back && glyphSystemState == glyphSystemStates.Smart) {
+                glyphSystemState = glyphSystemStates.Manual;
+            } else if (gamepad2.back && !prevgp2back && glyphSystemState == glyphSystemStates.Manual)
+            {
+                glyphSystemState = glyphSystemStates.Smart;
             }
+            if (gamepad2.right_stick_button && !prevgp2stick && gp2State == gp2States.Glyph) {
+                gp2State = gp2States.Relic;
+            } else if (gamepad2.right_stick_button && !prevgp2stick && gp2State == gp2States.Relic)
+            {
+                gp2State = gp2States.Glyph;
+            }
+            prevgp2back= gamepad2.back;
+            prevgp2stick = gamepad2.right_stick_button;
             
-            
+    if (gp2State == gp2States.Glyph) {
         if (glyphSystemState == glyphSystemStates.Smart) {
             // beg smart glyph stuff
             
@@ -223,59 +229,81 @@ public class RemoteControl extends LinearOpMode {
             if (gamepad2.y && !prevgp2y) {
                 curGlyphPos +=1;
             }
-            // check if a is newly pressed
-            if (gamepad2.a && !prevgp2a) {
+            else if (gamepad2.a && !prevgp2a) {
                 curGlyphPos -=1;
             }
+            else if (gamepad2.b) {
+                curGlyphPos = 0;
+            }
             
+            prevgp2a = gamepad2.a;
+            prevgp2y = gamepad2.y;
             curGlyphPos = Range.clip(curGlyphPos, 0,4);
+            
+            
             telemetry.addData("curGlyphPos", curGlyphPos);
             telemetry.addLine("automatic control of glyph system");
             
-            if (curGlyphPos == 0) {
+            if (gamepad2.x) {
+                glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
+                glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
+                glyphTopLeft.setPosition(GLYPHTOPLEFTOPEN);
+                glyphTopRight.setPosition(GLYPHTOPRIGHTOPEN);
+            }
+            else if (curGlyphPos == 0) {
                 // open, at the bottom
-                lifterMotor.setTargetPosition(0);
+                lifterMotor.setTargetPosition(LIFTERMOTORBOTTOM);
                 glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
                 glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
                 glyphTopLeft.setPosition(GLYPHTOPLEFTOPEN);
                 glyphTopRight.setPosition(GLYPHTOPRIGHTOPEN);
                 lifterMotor.setTargetPosition(LIFTERMOTORBOTTOM);
+                glyphCRServoState = glyphCRServoStates.TransitBottom;
+                
             } else if (curGlyphPos == 1) {
                 // top closed, and lifted to the top
+                lifterMotor.setTargetPosition(LIFTERMOTORBOTTOM);
                 glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
                 glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
                 glyphTopLeft.setPosition(GLYPHTOPLEFTCLOSED);
                 glyphTopRight.setPosition(GLYPHTOPRIGHTCLOSED);
+                glyphCRServoState = glyphCRServoStates.TransitTop;
                 
             } else if (curGlyphPos == 2) {
+                lifterMotor.setTargetPosition(LIFTERMOTORMIDDLE);
                 // bottom closed, lifted off the floor
                 glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTCLOSED);
                 glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTCLOSED);
                 glyphTopLeft.setPosition(GLYPHTOPLEFTCLOSED);
                 glyphTopRight.setPosition(GLYPHTOPRIGHTCLOSED);
+                glyphCRServoState = glyphCRServoStates.TransitTop;
             } else if (curGlyphPos == 3) {
                 // all closed, lifdted up high
+                lifterMotor.setTargetPosition(LIFTERMOTORTOP);
                 glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTCLOSED);
                 glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTCLOSED);
                 glyphTopLeft.setPosition(GLYPHTOPLEFTCLOSED);
                 glyphTopRight.setPosition(GLYPHTOPRIGHTCLOSED);
+                glyphCRServoState = glyphCRServoStates.TransitTop;
             } else if (curGlyphPos == 4) {
                 // open, lifted up high.
+                lifterMotor.setTargetPosition(LIFTERMOTORTOP);
                 glyphBottomLeft.setPosition(GLYPHBOTTOMLEFTOPEN);
                 glyphBottomRight.setPosition(GLYPHBOTTOMRIGHTOPEN);
                 glyphTopLeft.setPosition(GLYPHTOPLEFTOPEN);
                 glyphTopRight.setPosition(GLYPHTOPRIGHTOPEN);
+                glyphCRServoState = glyphCRServoStates.TransitTop;
                 
             }
             //compliant spitters out 
-            if (gamepad2.right_trigger > .8)
+            if (gamepad2.dpad_down)
             {
                 LeftCompliant.setPower(1);
                 RightCompliant.setPower(1);
                 telemetry.addLine("Compliant Wheels runing OUT");
             } 
             //compliant suckers in.
-            else if (gamepad2.left_trigger > .8)
+            else if (gamepad2.dpad_up)
             {
                 RightCompliant.setPower(-1);
                 LeftCompliant.setPower(-1);
@@ -290,29 +318,14 @@ public class RemoteControl extends LinearOpMode {
             }
             
             // smart crservo system:
+            telemetry.addData("glyph cr servo state: ", glyphCRServoState);
+            telemetry.addData("glyph cr servo time: ", glyphLifterServoMovingTime);
             
-            if (glyphCRServoState == glyphCRServoStates.Bottom) {
-                glyphLifterServo.setPower(0);
-                glyphLifterServoMovingTime.reset();
-            } else if (glyphCRServoState == glyphCRServoStates.TransitTop) {
-                if (glyphLifterServoMovingTime.seconds() < 2){
-                    glyphLifterServo.setPower(-1);
-                }
-                if (revMagnetSensor.getState() == true) { // magnet sensor not pressed
-                    glyphLifterServo.setPower(-1);
-                } else if (revMagnetSensor.getState() == false) {
-                    glyphCRServoState = glyphCRServoStates.Top;
-                }
-            } // if transient top
-                else if (glyphCRServoState == glyphCRServoStates.TransitBottom) {
-                    if (glyphLifterServoMovingTime.seconds() < 2) {
+            if (glyphCRServoState == glyphCRServoStates.TransitTop) {
+                glyphLifterServo.setPower(-1);
+            }
+            else if (glyphCRServoState == glyphCRServoStates.TransitBottom) {
                         glyphLifterServo.setPower(1);
-                    } else if (revMagnetSensor.getState() == true) {
-                        glyphLifterServo.setPower(1);
-                    } else if (revMagnetSensor.getState() == false) {
-                        glyphLifterServo.setPower(0);
-                        glyphCRServoState = glyphCRServoStates.Bottom;
-                    }
                 }
         } // smart mode end, beg manual mode
             else if (glyphSystemState == glyphSystemStates.Manual) {
@@ -359,13 +372,46 @@ public class RemoteControl extends LinearOpMode {
             
                 
         } // end manual mode for glyph system
+        } else if (gp2State == gp2States.Relic) {// end if mode == glyph
+            if (gamepad2.y) {
+                
+                telemetry.addLine("relic extender: OUT");
+                relicExtender.setPower(1);
+            } else if (gamepad2.a) {
+                
+                telemetry.addLine("relic extender: IN");
+                relicExtender.setPower(-1);
+            } else {
+                
+                telemetry.addLine("relic extender: NONE");
+                relicExtender.setPower(0);
+            }
+            
+            if (gamepad2.b) {
+                telemetry.addLine("relic holder: closed");
+                relicHolder.setPosition(RELICHOLDERCLOSED);
+            } else if (gamepad2.x) {
+                telemetry.addLine("relic holder: open");
+                relicHolder.setPosition(RELICHOLDEROPEN);
+            }
+            if (gamepad2.dpad_up) {
+                telemetry.addLine("relic spinner: open");
+                relicSpinner.setPower(-1);
+            } else if (gamepad2.dpad_down) {
+                telemetry.addLine("relic spinner: close");
+                relicSpinner.setPower(1);
+            }
+            else {
+                telemetry.addLine("relic spinner: none");
+                relicSpinner.setPower(0);
+            }
+        }
+            
+            
+        
             
             telemetry.addData("gp2 state", gp2State);
             telemetry.update();
-            prevgp2a = gamepad2.a;
-            prevgp2back= gamepad2.back;
-            prevgp2y = gamepad2.y;
-            prevgp2start = gamepad2.start;
         } // while( opModeIsActive())
     } // public void runOpMode() {
 } // public class RemoteControl extends LinearOpMode {

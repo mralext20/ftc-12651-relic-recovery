@@ -10,12 +10,13 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 
-@Autonomous(name = "GEM ONLY auto", group = "competition")
+@Autonomous(name = "auto", group = "competition")
 
 public class Auto extends LinearOpMode {
 
@@ -25,12 +26,18 @@ public class Auto extends LinearOpMode {
  private DcMotor centerWheel = null;
 
  
+ public static final double GLYPHTOPLEFTOPEN = 0.65;
+ public static final double GLYPHTOPLEFTCLOSED = 0.46;
+ public static final double GLYPHTOPRIGHTOPEN = 0.14;
+ public static final double GLYPHTOPRIGHTCLOSED = 0.37;
+ 
  private static final double speed = .3;
  private static final int gemDist = 400;
- private static final int closeToCrypt = 4000;
- private static final int cornerToCrypt = 500;
+ private static final int closeToCrypt = 3100;
+ private static final int cornerToCrypt = -1000;
+ private static final int cornerForeward = 2000;
  private static final int nintydeg = 1100;
- private static final int intoCrypt = 400;
+ private static final int intoCrypt = -800;
  
 
  private DcMotor relicArm = null;
@@ -46,10 +53,9 @@ public class Auto extends LinearOpMode {
 
  private Servo gemServo = null;
  
- private int lifterBottom = 0;
- private int lifterMiddle = 0;
- private int lifterTop = 0;
- 
+ private Servo GlyphTopLeft = null;
+ private Servo GlyphTopRight = null;
+ private CRServo GlyphLifter = null;
  
  public enum Locations {
   Close, Far
@@ -99,28 +105,26 @@ public class Auto extends LinearOpMode {
   rightWheel.setPower(0);
  }
 
- private void gliffSetlocation(double location) {
-  leftGliffServo.setPosition(location);
-  rightGliffServo.setPosition(location);
- }
-
  @Override
  public void runOpMode() {
         leftWheel = hardwareMap.get(DcMotor.class, "leftwheel");
         rightWheel = hardwareMap.get(DcMotor.class, "rightwheel");
-        centerWheel = hardwareMap.get(DcMotor.class, "centerwheel");
         rightCompliant = hardwareMap.get(DcMotor.class, "rightcompliant");
         leftCompliant = hardwareMap.get(DcMotor.class, "leftcompliant");
+        
+        GlyphTopLeft = hardwareMap.get(Servo.class, "glyphTopLeft");
+        GlyphTopRight = hardwareMap.get(Servo.class, "glyphTopRight");
+        GlyphLifter = hardwareMap.get(CRServo.class, "belt drive");
+        
+        GlyphLifter.setDirection(DcMotor.Direction.REVERSE);
         
         leftWheel.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         rightWheel.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         
         rightWheel.setDirection(DcMotor.Direction.REVERSE);
-        centerWheel.setDirection(DcMotor.Direction.REVERSE);
         
         leftWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        centerWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         
         leftCompliant.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightCompliant.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);  
@@ -129,7 +133,7 @@ public class Auto extends LinearOpMode {
 
   telemetry.addLine("press B for red, X for blue on controller 1");
   telemetry.update();
-  while (team == null) {
+  while (team == null || opModeIsActive()) {
    if (gamepad1.b) {
     team = Teams.Red;
    } else if (gamepad1.x) {
@@ -143,7 +147,7 @@ public class Auto extends LinearOpMode {
   telemetry.addData("press Y for CLOSE TO THE RELIC SCORING MAT," +
    "press A for FAR FROM THE RELIC SCORING MAT\n\n team was ", team);
   telemetry.update();
-  while (location == null) {
+  while (location == null || opModeIsActive()) {
    if (gamepad1.y) {
     location = Locations.Close;
    } else if (gamepad1.a) {
@@ -158,19 +162,20 @@ public class Auto extends LinearOpMode {
   if (team == Teams.Testing)
   {
    print("red > blue ");
-    drive(-gemDist);
-    gemServo.setPosition(.9);
-    sleep(500);
-    drive(gemDist);
-    print("end of gems");
-    return;
+   return;
   }
-  gemServo.setPosition(0.14);
-  sleep(900);
   
+  GlyphTopLeft.setPosition(GLYPHTOPLEFTCLOSED);
+  GlyphTopRight.setPosition(GLYPHTOPRIGHTCLOSED);
+  
+  GlyphLifter.setPower(-1);
+  
+  gemServo.setPosition(0.04);
+  sleep(1500);
+  GlyphLifter.setPower(0);
   if (team == Teams.Red)
   {
-   if (colorsens.red() > colorsens.blue())
+   if (colorsens.blue() > colorsens.red())
    {
     print("red > blue ");
     drive(-gemDist);
@@ -178,30 +183,35 @@ public class Auto extends LinearOpMode {
     sleep(500);
     drive(gemDist);
     print("end of gems");
+   } else 
+   {
+    print("blue > red");
+    drive(gemDist);
+    gemServo.setPosition(.9);
+    sleep(500);
+    drive(-gemDist);
    }
+  }
    else if (team == Teams.Blue)
    {
+    if (colorsens.blue() > colorsens.red()){
     drive(gemDist);
     gemServo.setPosition(.9);
     sleep(500);
     drive(-gemDist);
-   }
-  } // if team == red
-  else
-   if (colorsens.blue() > colorsens.red())
-   {
-    drive(gemDist);
-    gemServo.setPosition(.9);
-    sleep(500);
-    drive(-gemDist);
-   }
-   else
-   {
+     
+    }
+    else {
     drive(-gemDist);
     gemServo.setPosition(.9);
     sleep(500);
     drive(gemDist);
-   } // else (team == blue)
+    }
+   } // team == blue
+   
+   
+   // END OF GEMS
+   
    if (team == Teams.Red)
    {
     if (location == Locations.Close)
@@ -211,30 +221,28 @@ public class Auto extends LinearOpMode {
     }
     else 
     {
-     drive(closeToCrypt);
-     turn(nintydeg);
+     drive(cornerForeward);
+     turn(-nintydeg);
      drive(cornerToCrypt);
      turn (-nintydeg);
-    }
-   }
+    }// location == far 
+   } // team == blue
    else
    {
     if (location == Locations.Close)
     {
      drive(-closeToCrypt);
-     turn(-nintydeg);
+     turn(nintydeg);
     }
     else {
-     drive(-closeToCrypt);
+     drive(-cornerForeward);
      turn(-nintydeg);
      drive(cornerToCrypt);
      turn(nintydeg);
     }
    } // if team == red for board to crypt
    
-   drive(-intoCrypt);
-   
+   drive(intoCrypt);
+   turn(nintydeg/6);
   } // end of program
-  
-  
  }// end of class

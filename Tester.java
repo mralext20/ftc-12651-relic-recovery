@@ -19,7 +19,7 @@ public class Tester extends LinearOpMode {
 
 
   // set ye motors / servos
-  private String hwServo = "glyphBottomLeft";
+  private String hwServo = "gemservo";
   private String hwMotor = "liftermotor";
   private String hwCrServo="belt drive";
   private String hwColorSensor = "revsens";
@@ -35,6 +35,10 @@ public class Tester extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        telemetry.addData("servo", hwServo);
+        telemetry.addData("motor", hwMotor);
+        telemetry.addData("CrServo", hwCrServo);
+        
         telemetry.addLine("what mode?\npress X for servo\npress B for motor\npress y for CrServo");
         telemetry.update();
         
@@ -163,6 +167,7 @@ public class Tester extends LinearOpMode {
                 motor.setPower(motorPower);
                 
                 telemetry.addData("motorPower",motorPower);
+                telemetry.addData("motor.getcurrentposition", motor.getCurrentPosition());
                 telemetry.update();
             }
         }
